@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Interview Assistant</title>
+<script>
+function startInterview() {
+  // 获取用户输入的数据
+  var job = document.getElementById('job').value;
+  var jobDescription = document.getElementById('job-description').value;
+  var cv = document.getElementById('cv').value;
+  
+  // 存储到localStorage中（或者选择其他方式存储，比如cookies或者服务器）
+  localStorage.setItem('job', job);
+  localStorage.setItem('jobDescription', jobDescription);
+  localStorage.setItem('cv', cv);
+
+  // 跳转到interview.html页面
+  window.location.href = 'interview.html';
+}
+</script>
+</head>
+<body>
+
+<h1>AI Interview Assistant</h1>
+
+<label for="job">Job you are applying for:</label><br>
+<input type="text" id="job" name="job"><br>
+
+<label for="job-description">Job Description:</label><br>
+<textarea id="job-description" name="job-description" rows="4" cols="50"></textarea><br>
+
+<label for="cv">Your CV:</label><br>
+<textarea id="cv" name="cv" rows="4" cols="50"></textarea><br>
+
+<button onclick="startInterview()">Start Interview</button>
+
+</body>
+</html>

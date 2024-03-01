@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interview Assistant</title>
+    <script>
+        var questionIndex = 0;
+        var questions = [
+            "Give a brief introduction of yourself and your experience."
+        ];
+
+        var userAnswers = [];
+
+        var recognition;
+        var isRecording = false;
+
+        function initializeSpeechRecognition() {
+            if (!('webkitSpeechRecognition' in window)) {
+                alert('Your browser does not support speech recognition. Please use a compatible browser.');
+                return;
+            }
+
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = function (event) {
+                var transcript = event.results[0][0].transcript;
+                document.getElementById('user-answer').value = transcript;
+                toggleRecording();
+            };
+
+            recognition.onerror = function (event) {
+                console.error('Speech recognition error:', event.error);
+                toggleRecording();
+            };
+        }
+
+        function toggleRecording() {
+            if (isRecording) {
+                recognition.stop();
+                document.getElementById('voice-input-button').textContent = 'Voice Input';
+            } else {
+                recognition.start();
+                document.getElementById('voice-input-button').textContent = 'Stop Recording';
+            }
+            isRecording = !isRecording;
+        }
+
+
+        function speak(text) {
+            var apiUrl_speak = 'http://127.0.0.1:5001/api/speak';
+
+            fetch(apiUrl_speak, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: text })
+            })
+                .then(response => response.blob())
+                .then(blob => {
+                    var url = URL.createObjectURL(blob);
+                    var audio = new Audio(url);
+                    audio.play();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function submitAnswer() {
+            var userAnswer = document.getElementById('user-answer').value;
+            userAnswers.push(userAnswer);
+            var job = localStorage.getItem('job');
+            var jobDescription = localStorage.getItem('jobDescription');
+            var cv = localStorage.getItem('cv');
+            var question = questions[questionIndex];
+            var apiUrl = 'http://127.0.0.1:5000/api/interview';
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ job, jobDescription, cv, userAnswer, questionIndex, question })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('gpt-response').textContent = data.response;
+                    document.getElementById('submit-button').style.display = 'none';
+                    document.getElementById('next-question-button').style.display = 'block'; // Show the next question button
+                    document.getElementById('redo-button').style.display = 'block'; // Show the redo button
+                    document.getElementById('end-button').style.display = 'block'; // Show the end button
+                    speak(data.response);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function nextQuestion() {
+            document.getElementById('gpt-response').textContent = ''; // Clear the AI review
+            document.getElementById('user-answer').textContent = '';
+            document.getElementById('question').textContent = '';
+            document.getElementById('submit-button').style.display = 'block';
+            document.getElementById('next-question-button').style.display = 'none'; // Hide the next question button
+            document.getElementById('redo-button').style.display = 'none'; // Hide the redo button
+
+            questionIndex++;
+            var job = localStorage.getItem('job');
+            var jobDescription = localStorage.getItem('jobDescription');
+            var cv = localStorage.getItem('cv');
+            var userans = userAnswers[questionIndex - 1];
+            var apiUrl = 'http://127.0.0.1:5000/api/generate_question';
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ job, jobDescription, cv, userans, questionIndex })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('question').textContent = data.nextQuestion;
+                    var nextQuestions = data.nextQuestion;
+                    speak(nextQuestions);
+                    questions.push(nextQuestions); // Add the next question to the questions array
+
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+
+
+        function redoQuestion() {
+            document.getElementById('gpt-response').textContent = ''; // Clear the AI review
+            document.getElementById('user-answer').value = '';
+            speak(questions[questionIndex]);
+            document.getElementById('submit-button').style.display = 'block';
+            document.getElementById('redo-button').style.display = 'none'; // Hide the redo button
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (questions.length > 0) {
+                document.getElementById('question').textContent = questions[0];
+                speak(questions[0]);
+            }
+            initializeSpeechRecognition();
+        });
+
+        function end() {
+            var job = localStorage.getItem('job');
+            var jobDescription = localStorage.getItem('jobDescription');
+            var cv = localStorage.getItem('cv');
+            var apiUrl = 'http://127.0.0.1:5000/api/generate_report';
+
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ job, jobDescription, cv, userAnswers, questions })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    localStorage.setItem('reportContent', data.report); // Store the report content in localStorage
+                    window.location.href = 'report.html'; // Redirect to the report page
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+    </script>
+</head>
+
+<body>
+
+    <h1>Interview Assistant</h1>
+
+    <p>Question: <span id="question">...</span></p>
+
+    <div id="gpt-response"></div>
+
+    <label for="user-answer">Your Input:</label><br>
+    <textarea id="user-answer" name="user-answer" rows="4" cols="50"></textarea><br>
+
+    <button id="submit-button" onclick="submitAnswer()">Submit Answer</button>
+    <button id="next-question-button" style="display:none;" onclick="nextQuestion()">Next Question</button>
+    <button id="voice-input-button" onclick="toggleRecording()">Voice Input</button>
+    <button id="redo-button" style="display:none;" onclick="redoQuestion()">Redo</button> <!-- Add the redo button -->
+    <button id="end-button" style="display:none;" onclick="end()">End Interview and Generate report</button>
+
+
+</body>
+
+</html>
